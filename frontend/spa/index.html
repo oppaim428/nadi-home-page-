@@ -18,5 +18,48 @@
 <body>
 <noscript>You need to enable JavaScript to run this app.</noscript>
 <div id="root"></div>
+
+<!-- Floating WhatsApp button (visible at all times, phone from /api/site-config) -->
+<style>
+  #np-wa-fab{position:fixed;right:20px;bottom:20px;z-index:99999;display:none;align-items:center;gap:10px;padding:12px 18px;border-radius:9999px;background:#25d366;color:#fff !important;text-decoration:none;font-family:Outfit,system-ui,sans-serif;font-size:15px;font-weight:600;box-shadow:0 10px 30px rgba(37,211,102,.45),0 0 0 4px rgba(37,211,102,.15);transition:transform .25s ease,box-shadow .25s ease;animation:np-wa-pulse 2.4s infinite}
+  #np-wa-fab i{font-size:22px;line-height:1}
+  #np-wa-fab:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 14px 36px rgba(37,211,102,.55),0 0 0 6px rgba(37,211,102,.18)}
+  #np-wa-fab .np-wa-label{display:inline}
+  @media (max-width:640px){#np-wa-fab{padding:14px;font-size:0}#np-wa-fab .np-wa-label{display:none}#np-wa-fab i{font-size:24px}}
+  @keyframes np-wa-pulse{0%,100%{box-shadow:0 10px 30px rgba(37,211,102,.45),0 0 0 0 rgba(37,211,102,.5)}50%{box-shadow:0 10px 30px rgba(37,211,102,.45),0 0 0 14px rgba(37,211,102,0)}}
+</style>
+<a id="np-wa-fab" href="#" target="_blank" rel="noopener noreferrer" aria-label="Chat on WhatsApp" data-testid="whatsapp-fab">
+  <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+  <span class="np-wa-label">WhatsApp</span>
+</a>
+<script>
+(function(){
+  function buildLink(num,msg){
+    var clean=String(num||"").replace(/[^0-9]/g,"");
+    if(!clean) return null;
+    var u="https://wa.me/"+clean;
+    if(msg) u+="?text="+encodeURIComponent(msg);
+    return u;
+  }
+  function applyCfg(cfg){
+    var fab=document.getElementById("np-wa-fab");
+    if(!fab) return;
+    var url=buildLink(cfg && cfg.whatsapp_number, cfg && cfg.whatsapp_message);
+    if(url){ fab.href=url; fab.style.display="inline-flex"; }
+    else { fab.style.display="none"; }
+  }
+  function load(){
+    fetch("/api/site-config",{credentials:"omit"})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(cfg){ if(cfg) applyCfg(cfg); })
+      .catch(function(){});
+  }
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded",load);
+  } else { load(); }
+  // Re-fetch when admin saves (poll every 60s so floating button picks up new number).
+  setInterval(load, 60000);
+})();
+</script>
 </body>
 </html>

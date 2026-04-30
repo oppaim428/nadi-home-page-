@@ -136,12 +136,14 @@ def is_valid_slug(slug: str) -> bool:
 
 def config_default() -> Dict[str, str]:
     return {
-        "theme": "cosmic",
+        "theme": "premium",
         "gplay_url": "#",
         "appstore_url": "#",
         "appgallery_url": "#",
         "apk_url": "#",
         "contact_email": "nadiplayer@nadi.kr",
+        "whatsapp_number": "+966500000000",
+        "whatsapp_message": "Hello, I'm interested in NadiPlayer IPTV.",
         "hero_eyebrow_en": "Premium IPTV Experience",
         "hero_title_en": "Master Your TV",
         "hero_subtitle_en": "Watch +5000 live channels, +1200 movies and +500 series across phone, tablet and TV — in stunning quality.",
