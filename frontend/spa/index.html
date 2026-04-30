@@ -186,5 +186,217 @@
   else { init(); }
 })();
 </script>
+
+<!-- Public-side background override: applies cosmic_bg_url / yellow_bg_url / premium_bg_url over the baked-in gradients. -->
+<style>
+  #np-theme-bg{position:fixed;inset:0;z-index:-9;background-size:cover;background-position:center;background-repeat:no-repeat;pointer-events:none;opacity:0;transition:opacity .4s ease}
+  #np-theme-bg.on{opacity:1}
+  #np-theme-bg-dim{position:fixed;inset:0;z-index:-8;background:linear-gradient(to bottom,rgba(0,0,0,.35),rgba(0,0,0,.55));pointer-events:none;opacity:0;transition:opacity .4s ease}
+  #np-theme-bg-dim.on{opacity:1}
+</style>
+<div id="np-theme-bg" aria-hidden="true"></div>
+<div id="np-theme-bg-dim" aria-hidden="true"></div>
+<script>
+(function(){
+  function pickBg(cfg){
+    if(!cfg) return "";
+    var t=(cfg.theme||"cosmic").toLowerCase();
+    if(t==="yellow")  return cfg.yellow_bg_url || "";
+    if(t==="premium") return cfg.premium_bg_url || cfg.nebula_bg_url || "";
+    return cfg.cosmic_bg_url || "";
+  }
+  function apply(cfg){
+    var bg=document.getElementById("np-theme-bg");
+    var dim=document.getElementById("np-theme-bg-dim");
+    if(!bg||!dim) return;
+    var url=pickBg(cfg);
+    if(url){
+      bg.style.backgroundImage="url('"+url.replace(/'/g,"%27")+"')";
+      bg.classList.add("on"); dim.classList.add("on");
+    } else {
+      bg.style.backgroundImage=""; bg.classList.remove("on"); dim.classList.remove("on");
+    }
+  }
+  function load(){
+    fetch("/api/site-config",{credentials:"omit"})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(cfg){ if(cfg) apply(cfg); })
+      .catch(function(){});
+  }
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded", load); }
+  else { load(); }
+  setInterval(load, 60000);
+})();
+</script>
+
+<!-- Admin-only "Theme Backgrounds" panel (upload + URL) -->
+<style>
+  #np-bg-toggle{position:fixed;left:20px;bottom:72px;z-index:99997;display:none;align-items:center;gap:8px;padding:10px 14px;border-radius:9999px;background:#0b2225;color:#e5b73b;border:1px solid rgba(212,164,55,.5);font:600 13px Outfit,system-ui,sans-serif;letter-spacing:.05em;cursor:pointer;text-transform:uppercase;box-shadow:0 10px 24px rgba(0,0,0,.4)}
+  #np-bg-toggle i{color:#e5b73b}
+  #np-bg-toggle:hover{background:#0e2b2f}
+  #np-bg-admin{position:fixed;left:20px;bottom:20px;z-index:99998;width:420px;max-width:calc(100vw - 40px);max-height:calc(100vh - 40px);overflow:auto;background:#0b2225;color:#fff;font-family:Outfit,system-ui,sans-serif;border:1px solid rgba(212,164,55,.35);border-radius:14px;padding:0;display:none;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+  #np-bg-admin.open{display:block}
+  #np-bg-admin .np-bg-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:linear-gradient(135deg,rgba(212,164,55,.22),rgba(31,77,82,.2));border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0}
+  #np-bg-admin .np-bg-title{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#e5b73b;display:flex;align-items:center;gap:8px}
+  #np-bg-admin .np-bg-close{background:transparent;border:0;color:rgba(255,255,255,.6);cursor:pointer;font-size:18px;line-height:1;padding:4px 8px}
+  #np-bg-admin .np-bg-body{padding:14px;display:flex;flex-direction:column;gap:14px}
+  #np-bg-admin .np-bg-row{border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;background:rgba(0,0,0,.2)}
+  #np-bg-admin .np-bg-row h4{margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#e5b73b}
+  #np-bg-admin .np-bg-row .np-bg-grid{display:grid;grid-template-columns:72px 1fr;gap:10px;align-items:center}
+  #np-bg-admin .np-bg-thumb{width:72px;height:48px;border-radius:8px;background:#000 center/cover no-repeat;border:1px solid rgba(255,255,255,.1)}
+  #np-bg-admin input[type="text"]{width:100%;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 10px;color:#fff;font:13px Outfit,system-ui,sans-serif;outline:none}
+  #np-bg-admin input[type="text"]:focus{border-color:rgba(212,164,55,.6)}
+  #np-bg-admin .np-bg-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  #np-bg-admin button{background:rgba(212,164,55,.2);color:#e5b73b;border:1px solid rgba(212,164,55,.4);border-radius:9999px;padding:6px 12px;font:600 11px Outfit,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+  #np-bg-admin button:hover{background:rgba(212,164,55,.3)}
+  #np-bg-admin button.np-bg-clear{background:rgba(255,255,255,.05);color:rgba(255,255,255,.65);border-color:rgba(255,255,255,.15)}
+  #np-bg-admin .np-bg-save-row{position:sticky;bottom:0;background:#0b2225;padding:12px 14px;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  #np-bg-admin .np-bg-status{font-size:12px;color:rgba(255,255,255,.6);min-height:16px}
+  #np-bg-admin .np-bg-status.ok{color:#5fcc8c}
+  #np-bg-admin .np-bg-status.err{color:#ff8585}
+  #np-bg-admin .np-bg-save{background:#e5b73b;color:#0b2225;border:0;border-radius:9999px;padding:8px 20px;font-weight:700;font-size:13px;letter-spacing:.05em;text-transform:uppercase}
+  #np-bg-admin .np-bg-save:disabled{opacity:.5;cursor:wait}
+</style>
+<button id="np-bg-toggle" type="button" data-testid="bg-admin-toggle"><i class="fa-solid fa-image"></i> Theme Backgrounds</button>
+<div id="np-bg-admin" data-testid="bg-admin-panel" role="dialog" aria-label="Theme backgrounds">
+  <div class="np-bg-head">
+    <div class="np-bg-title"><i class="fa-solid fa-image"></i> Theme Backgrounds</div>
+    <button type="button" class="np-bg-close" data-testid="bg-admin-close" aria-label="Close">&times;</button>
+  </div>
+  <div class="np-bg-body">
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,.55);line-height:1.5">Upload a wide cinematic image or paste a URL. The image replaces the baked-in background for that theme. Leave blank to use the default gradients.</p>
+    <!-- rows injected by JS -->
+    <div id="np-bg-rows"></div>
+  </div>
+  <div class="np-bg-save-row">
+    <div class="np-bg-status" id="np-bg-status"></div>
+    <button type="button" class="np-bg-save" data-testid="bg-admin-save">Save all</button>
+  </div>
+</div>
+<script>
+(function(){
+  var THEMES=[
+    {key:"cosmic_bg_url",  label:"Cosmic Gold",   hint:"Dark teal nebula background"},
+    {key:"yellow_bg_url",  label:"Bold Yellow",   hint:"Background behind the Yellow theme hero"},
+    {key:"premium_bg_url", label:"IPTV Premium",  hint:"Full-bleed cinematic background (also uses NEBULA BACKGROUND if set)"}
+  ];
+  function isAdminRoute(){ return /^\/admin\b/.test(location.pathname); }
+  function getToken(){
+    try{
+      var keys=["nadi_admin_token","admin_token","token","access_token"];
+      for(var i=0;i<keys.length;i++){ var v=localStorage.getItem(keys[i]); if(v && v.length>20) return v; }
+      for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); var v=localStorage.getItem(k); if(v && /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(v)) return v; }
+    }catch(e){}
+    return null;
+  }
+  function setStatus(text,kind){
+    var s=document.getElementById("np-bg-status"); if(!s) return;
+    s.textContent=text||""; s.className="np-bg-status"+(kind?(" "+kind):"");
+  }
+  function buildRow(t, value){
+    var id=t.key;
+    var row=document.createElement("div");
+    row.className="np-bg-row";
+    row.innerHTML=
+      '<h4>'+t.label+'</h4>'+
+      '<div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px">'+t.hint+'</div>'+
+      '<div class="np-bg-grid">'+
+        '<div class="np-bg-thumb" id="thumb_'+id+'"></div>'+
+        '<input type="text" placeholder="https://… or /api/uploads/…" data-testid="bg-input-'+id+'" id="inp_'+id+'" />'+
+      '</div>'+
+      '<div class="np-bg-actions">'+
+        '<button type="button" data-act="upload" data-key="'+id+'" data-testid="bg-upload-'+id+'"><i class="fa-solid fa-upload"></i> Upload</button>'+
+        '<button type="button" class="np-bg-clear" data-act="clear" data-key="'+id+'" data-testid="bg-clear-'+id+'">Clear</button>'+
+      '</div>';
+    var inp=row.querySelector("#inp_"+id);
+    var thumb=row.querySelector("#thumb_"+id);
+    inp.value=value||"";
+    function refreshThumb(){ thumb.style.backgroundImage = inp.value ? "url('"+inp.value.replace(/'/g,"%27")+"')" : ""; }
+    refreshThumb();
+    inp.addEventListener("input", refreshThumb);
+    return row;
+  }
+  function fileInput(cb){
+    var f=document.createElement("input"); f.type="file"; f.accept="image/*";
+    f.addEventListener("change", function(){ if(f.files && f.files[0]) cb(f.files[0]); });
+    f.click();
+  }
+  async function uploadFile(file){
+    var token=getToken(); if(!token) throw new Error("Not authenticated");
+    var fd=new FormData(); fd.append("file", file);
+    var r=await fetch("/api/admin/upload",{method:"POST",headers:{"Authorization":"Bearer "+token},body:fd});
+    if(!r.ok){ var t=await r.text(); throw new Error("Upload failed: "+r.status+" "+t); }
+    return r.json();
+  }
+  function init(){
+    var toggle=document.getElementById("np-bg-toggle");
+    var panel=document.getElementById("np-bg-admin");
+    var rowsEl=document.getElementById("np-bg-rows");
+    if(!toggle||!panel||!rowsEl) return;
+
+    function maybeShow(){
+      if(!isAdminRoute() || !getToken()){ toggle.style.display="none"; panel.classList.remove("open"); return; }
+      toggle.style.display="inline-flex";
+    }
+    maybeShow();
+    setInterval(maybeShow, 1500);
+
+    toggle.addEventListener("click", async function(){
+      var token=getToken(); if(!token){ alert("Please sign in first."); return; }
+      try{
+        var r=await fetch("/api/admin/site-config",{headers:{"Authorization":"Bearer "+token}});
+        if(!r.ok) throw new Error("HTTP "+r.status);
+        var cfg=await r.json();
+        rowsEl.innerHTML="";
+        THEMES.forEach(function(t){ rowsEl.appendChild(buildRow(t, cfg[t.key])); });
+        setStatus(""); panel.classList.add("open");
+      }catch(e){ alert("Could not load config: "+e.message); }
+    });
+
+    panel.querySelector(".np-bg-close").addEventListener("click", function(){ panel.classList.remove("open"); });
+
+    rowsEl.addEventListener("click", function(ev){
+      var btn=ev.target.closest("button[data-act]"); if(!btn) return;
+      var key=btn.getAttribute("data-key");
+      var act=btn.getAttribute("data-act");
+      var inp=document.getElementById("inp_"+key);
+      var thumb=document.getElementById("thumb_"+key);
+      if(act==="clear"){
+        inp.value=""; thumb.style.backgroundImage=""; return;
+      }
+      if(act==="upload"){
+        fileInput(async function(file){
+          btn.disabled=true; setStatus("Uploading "+file.name+"…");
+          try{
+            var res=await uploadFile(file);
+            inp.value=res.url; thumb.style.backgroundImage="url('"+res.url+"')";
+            setStatus("Uploaded. Click Save all to apply.","ok");
+          }catch(e){ setStatus(e.message,"err"); }
+          finally{ btn.disabled=false; }
+        });
+      }
+    });
+
+    panel.querySelector(".np-bg-save").addEventListener("click", async function(ev){
+      var token=getToken(); if(!token){ setStatus("Not authenticated.","err"); return; }
+      var btn=ev.currentTarget; btn.disabled=true; setStatus("Saving…");
+      try{
+        var body={};
+        THEMES.forEach(function(t){ body[t.key]=document.getElementById("inp_"+t.key).value.trim(); });
+        var r=await fetch("/api/admin/site-config",{
+          method:"PUT",
+          headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+          body: JSON.stringify(body)
+        });
+        if(!r.ok) throw new Error("HTTP "+r.status);
+        setStatus("Saved. Reload the site to see the new backgrounds.","ok");
+      }catch(e){ setStatus("Save failed: "+e.message,"err"); }
+      finally{ btn.disabled=false; }
+    });
+  }
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded", init); }
+  else { init(); }
+})();
+</script>
 </body>
 </html>
