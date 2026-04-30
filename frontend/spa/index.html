@@ -191,8 +191,12 @@
 <style>
   #np-theme-bg{position:fixed;inset:0;z-index:-9;background-size:cover;background-position:center;background-repeat:no-repeat;pointer-events:none;opacity:0;transition:opacity .4s ease}
   #np-theme-bg.on{opacity:1}
-  #np-theme-bg-dim{position:fixed;inset:0;z-index:-8;background:linear-gradient(to bottom,rgba(0,0,0,.35),rgba(0,0,0,.55));pointer-events:none;opacity:0;transition:opacity .4s ease}
+  #np-theme-bg-dim{position:fixed;inset:0;z-index:-8;background:linear-gradient(to bottom,rgba(0,0,0,.18),rgba(0,0,0,.32));pointer-events:none;opacity:0;transition:opacity .4s ease}
   #np-theme-bg-dim.on{opacity:1}
+  /* When custom background is active, let it show through the SPA root container. */
+  html.np-has-bg, html.np-has-bg body{background:transparent !important}
+  html.np-has-bg .App,
+  html.np-has-bg [data-testid="landing-page"]{background-color:transparent !important}
 </style>
 <div id="np-theme-bg" aria-hidden="true"></div>
 <div id="np-theme-bg-dim" aria-hidden="true"></div>
@@ -213,8 +217,10 @@
     if(url){
       bg.style.backgroundImage="url('"+url.replace(/'/g,"%27")+"')";
       bg.classList.add("on"); dim.classList.add("on");
+      document.documentElement.classList.add("np-has-bg");
     } else {
       bg.style.backgroundImage=""; bg.classList.remove("on"); dim.classList.remove("on");
+      document.documentElement.classList.remove("np-has-bg");
     }
   }
   function load(){
