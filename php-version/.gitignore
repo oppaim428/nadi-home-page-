@@ -1,0 +1,20 @@
+# Local env / secrets
+.env
+
+# Storage
+storage/
+*.sqlite
+*.sqlite-journal
+
+# Uploaded media (keep folder, ignore contents)
+uploads/*
+!uploads/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log

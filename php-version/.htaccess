@@ -1,0 +1,84 @@
+# ============================================================
+# NadiPlayer — Apache rewrite rules
+# Place at the document root (e.g. public_html/) on cPanel.
+# Requires mod_rewrite (enabled by default on shared hosting).
+# ============================================================
+
+Options -MultiViews -Indexes
+DirectoryIndex index.html index.php
+
+# Allow CORS preflights to be handled even before PHP
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>
+
+# UTF-8 default charset for HTML
+AddDefaultCharset UTF-8
+
+# Compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+# Long cache for hashed React static assets
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css                  "access plus 1 year"
+    ExpiresByType application/javascript    "access plus 1 year"
+    ExpiresByType image/png                 "access plus 30 days"
+    ExpiresByType image/jpeg                "access plus 30 days"
+    ExpiresByType image/svg+xml             "access plus 30 days"
+    ExpiresByType image/webp                "access plus 30 days"
+</IfModule>
+
+# Block direct access to internal folders
+RewriteEngine On
+
+RewriteRule ^includes/.*  - [F,L]
+RewriteRule ^sql/.*       - [F,L]
+RewriteRule ^docs/.*\.md$ - [F,L]
+RewriteRule ^\.env$       - [F,L]
+RewriteRule ^\.git(/.*)?$ - [F,L]
+RewriteRule ^storage/.*   - [F,L]
+
+# ---------- API routes ----------
+# /api/                 -> api/index.php
+# /api/site-config      -> api/site-config.php
+# /api/auth/login       -> api/auth/login.php
+# /api/auth/me          -> api/auth/me.php
+# /api/admin/site-config -> api/admin/site-config.php
+# /api/admin/pages              -> api/admin/pages.php
+# /api/admin/pages/<id>         -> api/admin/pages.php?id=<id>
+# /api/admin/upload             -> api/admin/uploads.php?action=upload
+# /api/admin/uploads            -> api/admin/uploads.php?action=list
+# /api/admin/uploads/<filename> -> api/admin/uploads.php?filename=<filename>
+# /api/pages                    -> api/pages.php
+# /api/pages/<slug>             -> api/pages.php?slug=<slug>
+# /api/uploads/<filename>       -> served directly from /uploads/<filename>
+
+# Static files inside /uploads/ are served directly from that folder.
+RewriteRule ^api/uploads/([^/]+)$  uploads/$1  [L]
+
+RewriteRule ^api/?$                                     api/index.php                                    [L,QSA]
+RewriteRule ^api/site-config/?$                         api/site-config.php                              [L,QSA]
+RewriteRule ^api/auth/login/?$                          api/auth/login.php                               [L,QSA]
+RewriteRule ^api/auth/me/?$                             api/auth/me.php                                  [L,QSA]
+
+RewriteRule ^api/admin/site-config/?$                   api/admin/site-config.php                        [L,QSA]
+
+RewriteRule ^api/admin/upload/?$                        api/admin/uploads.php?action=upload               [L,QSA]
+RewriteRule ^api/admin/uploads/?$                       api/admin/uploads.php?action=list                 [L,QSA]
+RewriteRule ^api/admin/uploads/([^/]+)$                 api/admin/uploads.php?filename=$1                 [L,QSA]
+
+RewriteRule ^api/admin/pages/?$                         api/admin/pages.php                               [L,QSA]
+RewriteRule ^api/admin/pages/([A-Za-z0-9\-]+)/?$        api/admin/pages.php?id=$1                         [L,QSA]
+
+RewriteRule ^api/pages/?$                               api/pages.php                                     [L,QSA]
+RewriteRule ^api/pages/([A-Za-z0-9\-]+)/?$              api/pages.php?slug=$1                             [L,QSA]
+
+# ---------- React Router SPA fallback ----------
+# Any non-API URL that isn't a real file or directory falls back to index.html
+RewriteCond %{REQUEST_URI} !^/api/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^.*$ index.html [L]

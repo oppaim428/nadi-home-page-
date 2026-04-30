@@ -1,0 +1,9 @@
+# Block any access to this folder via web.
+Options -Indexes
+<FilesMatch ".*">
+    Require all denied
+</FilesMatch>
+<IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+</IfModule>
