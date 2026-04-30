@@ -61,5 +61,130 @@
   setInterval(load, 60000);
 })();
 </script>
+
+<!-- Admin-only WhatsApp settings panel (shows on /admin pages when logged in) -->
+<style>
+  #np-wa-admin{position:fixed;left:20px;bottom:20px;z-index:99998;width:340px;max-width:calc(100vw - 40px);background:#0b2225;color:#fff;font-family:Outfit,system-ui,sans-serif;border:1px solid rgba(212,164,55,.35);border-radius:14px;padding:0;display:none;box-shadow:0 18px 40px rgba(0,0,0,.45);overflow:hidden}
+  #np-wa-admin.open{display:block}
+  #np-wa-admin .np-wa-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:linear-gradient(135deg,rgba(37,211,102,.18),rgba(212,164,55,.12));border-bottom:1px solid rgba(255,255,255,.08)}
+  #np-wa-admin .np-wa-title{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#e5b73b;display:flex;align-items:center;gap:8px}
+  #np-wa-admin .np-wa-title i{color:#25d366}
+  #np-wa-admin .np-wa-close{background:transparent;border:0;color:rgba(255,255,255,.6);cursor:pointer;font-size:18px;line-height:1;padding:4px 8px}
+  #np-wa-admin .np-wa-body{padding:14px;display:flex;flex-direction:column;gap:10px}
+  #np-wa-admin label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.55);display:block;margin-bottom:4px}
+  #np-wa-admin input,#np-wa-admin textarea{width:100%;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 11px;color:#fff;font:14px Outfit,system-ui,sans-serif;outline:none}
+  #np-wa-admin input:focus,#np-wa-admin textarea:focus{border-color:rgba(212,164,55,.6)}
+  #np-wa-admin textarea{resize:vertical;min-height:60px}
+  #np-wa-admin .np-wa-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:4px}
+  #np-wa-admin button.np-wa-save{background:#e5b73b;color:#0b2225;border:0;border-radius:9999px;padding:8px 16px;font-weight:700;font-size:13px;letter-spacing:.05em;cursor:pointer;text-transform:uppercase}
+  #np-wa-admin button.np-wa-save:disabled{opacity:.5;cursor:wait}
+  #np-wa-admin .np-wa-status{font-size:12px;color:rgba(255,255,255,.6);min-height:16px}
+  #np-wa-admin .np-wa-status.ok{color:#5fcc8c}
+  #np-wa-admin .np-wa-status.err{color:#ff8585}
+  #np-wa-toggle{position:fixed;left:20px;bottom:20px;z-index:99997;display:none;align-items:center;gap:8px;padding:10px 14px;border-radius:9999px;background:#0b2225;color:#e5b73b;border:1px solid rgba(212,164,55,.5);font:600 13px Outfit,system-ui,sans-serif;letter-spacing:.05em;cursor:pointer;text-transform:uppercase;box-shadow:0 10px 24px rgba(0,0,0,.4)}
+  #np-wa-toggle i{color:#25d366}
+  #np-wa-toggle:hover{background:#0e2b2f}
+</style>
+<button id="np-wa-toggle" type="button" data-testid="whatsapp-admin-toggle"><i class="fa-brands fa-whatsapp"></i> WhatsApp Settings</button>
+<div id="np-wa-admin" data-testid="whatsapp-admin-panel" role="dialog" aria-label="WhatsApp settings">
+  <div class="np-wa-head">
+    <div class="np-wa-title"><i class="fa-brands fa-whatsapp"></i> WhatsApp Floating Button</div>
+    <button type="button" class="np-wa-close" data-testid="whatsapp-admin-close" aria-label="Close">&times;</button>
+  </div>
+  <div class="np-wa-body">
+    <div>
+      <label for="np-wa-num">Phone number (international, with country code)</label>
+      <input id="np-wa-num" type="tel" placeholder="+966500000000" data-testid="whatsapp-admin-number" autocomplete="off" />
+    </div>
+    <div>
+      <label for="np-wa-msg">Pre-filled message (optional)</label>
+      <textarea id="np-wa-msg" placeholder="Hello, I'm interested in NadiPlayer IPTV." data-testid="whatsapp-admin-message"></textarea>
+    </div>
+    <div class="np-wa-status" id="np-wa-status"></div>
+    <div class="np-wa-actions">
+      <button type="button" class="np-wa-save" data-testid="whatsapp-admin-save">Save</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  function isAdminRoute(){ return /^\/admin\b/.test(location.pathname); }
+  function getToken(){
+    try{
+      // The React app stores its JWT in localStorage; common keys used by the SPA.
+      var keys=["nadi_admin_token","admin_token","token","access_token"];
+      for(var i=0;i<keys.length;i++){
+        var v=localStorage.getItem(keys[i]);
+        if(v && v.length>20) return v;
+      }
+      // Fallback: scan all keys for a JWT-shaped value.
+      for(var i=0;i<localStorage.length;i++){
+        var k=localStorage.key(i); var v=localStorage.getItem(k);
+        if(v && /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(v)) return v;
+      }
+    }catch(e){}
+    return null;
+  }
+  function show(panel){ panel.classList.add("open"); document.getElementById("np-wa-toggle").style.display="none"; }
+  function hide(panel){ panel.classList.remove("open"); document.getElementById("np-wa-toggle").style.display="inline-flex"; }
+  function setStatus(text,kind){
+    var s=document.getElementById("np-wa-status");
+    if(!s) return;
+    s.textContent=text||"";
+    s.className="np-wa-status"+(kind?(" "+kind):"");
+  }
+  function init(){
+    var toggle=document.getElementById("np-wa-toggle");
+    var panel=document.getElementById("np-wa-admin");
+    if(!toggle||!panel) return;
+    function maybeShow(){
+      if(!isAdminRoute()){ toggle.style.display="none"; panel.classList.remove("open"); return; }
+      var t=getToken();
+      if(!t){ toggle.style.display="none"; panel.classList.remove("open"); return; }
+      // Only show toggle once user is logged in (token present).
+      toggle.style.display="inline-flex";
+    }
+    maybeShow();
+    setInterval(maybeShow, 1500);
+
+    toggle.addEventListener("click", async function(){
+      var token=getToken();
+      if(!token){ alert("Please sign in first."); return; }
+      try{
+        var r=await fetch("/api/admin/site-config",{headers:{"Authorization":"Bearer "+token}});
+        if(!r.ok) throw new Error("HTTP "+r.status);
+        var cfg=await r.json();
+        document.getElementById("np-wa-num").value = cfg.whatsapp_number || "";
+        document.getElementById("np-wa-msg").value = cfg.whatsapp_message || "";
+        setStatus("");
+        show(panel);
+      }catch(e){ alert("Could not load config: "+e.message); }
+    });
+    panel.querySelector(".np-wa-close").addEventListener("click", function(){ hide(panel); });
+    panel.querySelector(".np-wa-save").addEventListener("click", async function(ev){
+      var btn=ev.currentTarget;
+      var token=getToken();
+      if(!token){ setStatus("Not authenticated.","err"); return; }
+      btn.disabled=true; setStatus("Saving…");
+      try{
+        var num=document.getElementById("np-wa-num").value.trim();
+        var msg=document.getElementById("np-wa-msg").value;
+        var r=await fetch("/api/admin/site-config",{
+          method:"PUT",
+          headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+          body: JSON.stringify({ whatsapp_number:num, whatsapp_message:msg })
+        });
+        if(!r.ok) throw new Error("HTTP "+r.status);
+        setStatus("Saved. The floating button will refresh on next page load.","ok");
+        // Trigger immediate refresh of the public floating button on this tab too.
+        try{ var fab=document.getElementById("np-wa-fab"); if(fab){ fab.dataset.refresh=Date.now(); } }catch(e){}
+      }catch(e){ setStatus("Save failed: "+e.message,"err"); }
+      finally{ btn.disabled=false; }
+    });
+  }
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded", init); }
+  else { init(); }
+})();
+</script>
 </body>
 </html>
